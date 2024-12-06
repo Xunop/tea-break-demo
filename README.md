@@ -20,6 +20,65 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Project Struct
+
+```
+app
+├── api
+│   ├── admin
+│   │   ├── papers
+│   │   │   ├── route.ts (GET, POST - Get all papers, Upload a new paper)
+│   │   │   └── [paperId]
+│   │   │       ├── route.ts (PUT, DELETE - Edit or delete a paper by paperId)
+│   │   └── reporters
+│   │       └── [reporterId]
+│   │           └── approve.ts (POST - Approve a reporter registration)
+│   ├── users
+│   │   ├── route.ts (POST - Register a new user)
+│   │   └── [userId]
+│   │       └── friend.ts (POST - Add a friend by userId)
+│   ├── papers
+│   │   └── [paperId]
+│   │       ├── comments.ts (POST - Add a comment to a paper by paperId)
+│   │       └── download.ts (GET - Download a paper by paperId)
+│   ├── reporters
+│   │   ├── route.ts (POST - Register a new conference reporter)
+│   │   └── [reporterId]
+│   │       ├── papers
+│   │       │   ├── route.ts (GET, POST - Get or upload papers by reporterId)
+│   │       │   └── [paperId]
+│   │       │       └── stats.ts (GET - Get stats for a specific paper by paperId)
+├── components
+│   ├── Header.tsx (Header component with navigation links)
+│   ├── Footer.tsx (Footer component)
+│   ├── PaperCard.tsx (Component for displaying a paper card)
+│   └── Modal.tsx (Reusable modal component for login or confirmation actions)
+├── fonts
+│   ├── GeistMonoVF.woff
+│   └── GeistVF.woff
+├── globals.css (Global styles using TailwindCSS)
+├── layout.tsx (Main layout including Header and Footer)
+├── (routes)
+│   ├── index
+│   │   └── page.tsx (Home page - Welcome message and user actions)
+│   ├── papers
+│   │   └── page.tsx (Papers listing page)
+│   └── profile
+│       └── page.tsx (User profile page)
+public
+├── file.svg
+├── globe.svg
+├── next.svg
+├── vercel.svg
+└── window.svg
+store
+├── useAppStore.ts (Zustand store for managing user and paper states)
+utils
+├── api.ts (Utility functions for interacting with the backend API)
+├── auth.ts (Utility functions for handling authentication)
+└── constants.ts (Constants like API URLs, etc.)
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

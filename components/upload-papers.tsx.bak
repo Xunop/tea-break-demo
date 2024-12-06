@@ -1,0 +1,336 @@
+import React, { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import type { Paper, User } from "@/lib/apis/types";
+import { uploadPaperByReporter, getUserByEmail } from "@/lib/apis/global";
+
+interface PaperUploadFormProps {
+  user: User;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUploadSuccess?: (newPaper: Paper) => void;
+}
+
+export default function PaperUploadForm({
+  user,
+  isOpen,
+  onOpenChange,
+  onUploadSuccess,
+}: PaperUploadFormProps) {
+  const { toast } = useToast();
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [paperDetails, setPaperDetails] = useState<Paper>({
+    title: "",
+    author: user ? user.username : "",
+    conference: "ACM",
+    year: new Date().getFullYear(),
+    abstract: "",
+    file: 0,
+    attachmentTag: 0,
+  });
+
+  const [conferenceMode, setConferenceMode] = useState<"preset" | "custom">(
+    "preset",
+  );
+  const [yearMode, setYearMode] = useState<"preset" | "custom">("preset");
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+    setPaperDetails((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadFile(file);
+      // Optionally, you can extract filename or set it in paperDetails
+      setPaperDetails((prev) => ({
+        ...prev,
+        file: file.name,
+      }));
+    }
+  };
+
+  const handleSubmit = async () => {
+    // Validation
+    if (!paperDetails.title.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a paper title.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!uploadFile) {
+      toast({
+        title: "Upload Error",
+        description: "Please select a PDF file to upload.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const res = await uploadPaperByReporter(paperDetails, uploadFile);
+
+      if (res.data.code === 200) {
+        const newPaperId = res.data.data;
+
+        toast({
+          title: "Success",
+          description: "Paper uploaded successfully.",
+        });
+
+        const paper = { ...paperDetails, id: newPaperId };
+
+        // Reset form
+        setPaperDetails({
+          title: "",
+          author: user ? user.username : "",
+          conference: "",
+          year: new Date().getFullYear(),
+          abstract: "",
+          file: 0,
+          attachmentTag: 0,
+        });
+        setUploadFile(null);
+
+        // Notify parent component
+        onUploadSuccess?.(paper);
+        onOpenChange(false);
+      } else {
+        toast({
+          title: "Upload Failed",
+          description: res.data.message || "Failed to upload paper.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An error occurred while uploading the paper.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>上传论文</DialogTitle>
+          <DialogDescription>
+            输入您的学术论文详细信息，所有字段都是必填的。
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="title" className="text-right">
+              标题
+            </Label>
+            <Input
+              id="title"
+              name="title"
+              value={paperDetails.title}
+              onChange={handleInputChange}
+              placeholder="Enter paper title"
+              className="col-span-3"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="author" className="text-right">
+              作者
+            </Label>
+            <Input
+              id="author"
+              name="author"
+              value={paperDetails.author}
+              onChange={handleInputChange}
+              className="col-span-3"
+            />
+          </div>
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="conference" className="text-right">
+              会议
+            </Label>
+            <Select
+              value={
+                conferenceMode === "preset" ? paperDetails.conference : "custom"
+              }
+              onValueChange={(value) => {
+                if (value === "custom") {
+                  setConferenceMode("custom");
+                  setPaperDetails((prev) => ({ ...prev, conference: "" }));
+                } else {
+                  setConferenceMode("preset");
+                  setPaperDetails((prev) => ({ ...prev, conference: value }));
+                }
+              }}
+            >
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select Conference" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NeurIPS">NeurIPS</SelectItem>
+                <SelectItem value="QCRYPT">QCRYPT</SelectItem>
+                <SelectItem value="ACM FAccT">ACM FAccT</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+                <SelectItem value="custom">Custom Conference</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Custom Conference Input */}
+            {conferenceMode === "custom" && (
+              <>
+                <Label className="text-right">Custom Conference</Label>
+                <Input
+                  placeholder="Enter conference name"
+                  value={paperDetails.conference}
+                  onChange={(e) =>
+                    setPaperDetails((prev) => ({
+                      ...prev,
+                      conference: e.target.value,
+                    }))
+                  }
+                  className="col-span-3"
+                />
+              </>
+            )}
+          </div>
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="year" className="text-right">
+              年份
+            </Label>
+            <Select
+              value={
+                yearMode === "preset" ? paperDetails.year.toString() : "custom"
+              }
+              onValueChange={(value) => {
+                if (value === "custom") {
+                  setYearMode("custom");
+                  setPaperDetails((prev) => ({ ...prev, year: 0 }));
+                } else {
+                  setYearMode("preset");
+                  setPaperDetails((prev) => ({
+                    ...prev,
+                    year: parseInt(value),
+                  }));
+                }
+              }}
+            >
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from(
+                  { length: 20 },
+                  (_, i) => new Date().getFullYear() - i,
+                ).map((year) => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))}
+                <SelectItem value="custom">Custom Year</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Custom Year Input */}
+            {yearMode === "custom" && (
+              <>
+                <Label className="text-right">Custom Year</Label>
+                <Input
+                  type="number"
+                  placeholder="Enter custom year"
+                  min="1900"
+                  max={new Date().getFullYear()}
+                  value={paperDetails.year === 0 ? "" : paperDetails.year}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setPaperDetails((prev) => ({
+                      ...prev,
+                      year: value ? parseInt(value) : 0,
+                    }));
+                  }}
+                  className="col-span-3"
+                />
+              </>
+            )}
+          </div>
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="abstract" className="text-right">
+              摘要
+            </Label>
+            <Textarea
+              id="abstract"
+              name="abstract"
+              value={paperDetails.abstract}
+              onChange={handleInputChange}
+              placeholder="Enter paper abstract"
+              className="col-span-3 h-24"
+            />
+          </div>
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="file" className="text-right">
+              PDF 文件
+            </Label>
+            <Input
+              id="file"
+              type="file"
+              accept=".pdf"
+              onChange={handleFileChange}
+              className="col-span-3"
+            />
+            {uploadFile && (
+              <div className="col-span-4 text-sm text-gray-500 text-right">
+                Selected file: {uploadFile.name}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            取消
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!uploadFile || !paperDetails.title.trim()}
+          >
+            上传
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
